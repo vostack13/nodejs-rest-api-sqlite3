@@ -33,72 +33,50 @@ const Tasks = sequelize.define("tasks", {
   }
 });
 
-function find() {
+const findAll = () => {
   return new Promise(async (resolve, reject) => {
     const data = await Tasks.findAll();
-    console.log("data", JSON.stringify(data));
-    resolve(JSON.stringify(data));
+    resolve(data);
   });
-}
+};
 
-function createTask(task) {
+const findOne = idTask => {
+  return new Promise(async (resolve, reject) => {
+    const foundedModel = await Tasks.findOne({ where: { id: idTask } });
+
+    if (foundedModel === null) {
+      console.log("FIND FAILED! Task not found");
+      return resolve({ error: "FIND FAILED! Task not found" });
+    }
+
+    resolve(foundedModel);
+  });
+};
+
+const createTask = task => {
   return new Promise(async (resolve, reject) => {
     const data = await Tasks.create(task);
     resolve(data);
   });
-}
-
-module.exports = {
-  find,
-  createTask
 };
 
-// class AppDB {
-//   constructor() {
-//     this.db = new sqlite3.Database("./src/models/db/tasks.db", err => {
-//       if (err) {
-//         console.error(err.message);
-//       }
-//       console.log("Connected to the tasks database.");
-//     });
-//   }
+const removeTask = idTask => {
+  return new Promise(async (resolve, reject) => {
+    const foundedModel = await Tasks.findOne({ where: { id: idTask } });
 
-//   selectAllTasks() {
-//     return new Promise((resolve, reject) => {
-//       let result = [];
+    if (foundedModel === null) {
+      console.log("DELETE FAILED! Task not found");
+      return resolve({ error: "DELETE FAILED! Task not found" });
+    }
 
-//       this.db.all(`SELECT * FROM tasks`, (err, rows) => {
-//         if (err) {
-//           console.error(err.message);
-//           reject(err.message);
-//         }
+    await foundedModel.destroy();
+    return resolve({ id: foundedModel.id });
+  });
+};
 
-//         result = rows;
-//       });
-//     });
-//   }
-// }
-
-// console.log("t", selectAllTasks());
-
-// close the database connection
-// db.close(err => {
-//   if (err) {
-//     return console.error(err.message);
-//   }
-//   console.log("Close the database connection.");
-// });
-
-// module.exports = AppDB;
-
-const insertTask = `INSERT INTO "tasks"(
-  "id",
-  "title",
-  "description",
-  "createdBy"
-) VALUES (
-  1,
-  'Изучить Angular 8',
-  'Посмотреть лекции, почитать умные книжки',
-  '0'
-)`;
+module.exports = {
+  findAll,
+  findOne,
+  createTask,
+  removeTask
+};

@@ -2,8 +2,7 @@ var express = require("express");
 var cors = require("cors");
 var app = express();
 var tasksRouter = require("./routes/tasks");
-
-// const database = require("./models/db");
+var taskRouter = require("./routes/task");
 
 app.use(cors());
 app.use(express.urlencoded({ extended: false }));
@@ -14,6 +13,7 @@ app.get("/", function(req, res) {
 });
 
 app.use("/tasks", tasksRouter);
+app.use("/task", taskRouter);
 
 app.use((req, res, next) => {
   res.status(404).json({ err: "404", message: "Not found" });
