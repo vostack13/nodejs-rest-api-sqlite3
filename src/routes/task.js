@@ -1,5 +1,5 @@
-var express = require("express");
-var router = express.Router();
+const express = require("express");
+const router = express.Router();
 const AppDB = require("../models/db");
 
 router.get("/:id", async (req, res) => {
