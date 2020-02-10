@@ -1,9 +1,10 @@
 var express = require("express");
 var router = express.Router();
 const AppDB = require("../models/db");
+const authenticateToken = require("../models/helpers/authenticateToken");
 
-router.get("/", async (req, res) => {
-  const allTasks = await AppDB.find();
+router.get("/", authenticateToken, async (req, res) => {
+  const allTasks = await AppDB.findAll();
   return res.send(allTasks);
 });
 
