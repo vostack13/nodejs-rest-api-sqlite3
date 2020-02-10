@@ -2,6 +2,9 @@ const generateToken = require("./helpers/generateToken");
 const Sequelize = require("sequelize");
 const jwt = require("jsonwebtoken");
 
+const ACCESS_EXP_MINUTES = 1;
+const REFRESH_EXP_MINUTES = 10;
+
 const sequelize = new Sequelize({
   dialect: "sqlite",
   storage: "./src/models/db/tasks.db"
@@ -70,75 +73,112 @@ const Sessions = sequelize.define("sessions", {
 });
 
 const signIn = formData => {
-  return new Promise(async (resolve, reject) => {
-    const findUserModel = await Users.findOne({
-      where: { login: formData.login, password: formData.password }
+    return new Promise(async (resolve, reject) => {
+        const findUserModel = await Users.findOne({
+            where: { login: formData.login, password: formData.password }
+        });
+
+        if (findUserModel === null) {
+            console.log("FIND FAILED! User not found ");
+            return resolve({ status: 403, data: { error: "User not found !!!" } });
+        }
+
+        const sessionItem = {
+            userId: findUserModel.userId,
+
+            accessToken: generateToken(
+                { login: findUserModel.login },
+                process.env.ACCESS_TOKEN_SECRET,
+                ACCESS_EXP_MINUTES,
+            ),
+
+            refreshToken: generateToken(
+                { login: findUserModel.login },
+                process.env.REFRESH_TOKEN_SECRET,
+                REFRESH_EXP_MINUTES,
+            ),
+
+            accessExpiresIn: Math.floor(Date.now() / 1000) + 60 * ACCESS_EXP_MINUTES,
+            expiresIn: Math.floor(Date.now() / 1000) + 60 * REFRESH_EXP_MINUTES,
+        };
+
+        const createdSession = await Sessions.create({
+            userId: sessionItem.userId,
+            refreshToken: sessionItem.refreshToken,
+            expiresIn: sessionItem.expiresIn
+        });
+
+        if (createdSession === undefined) {
+            console.log("CREATE SESSION FAILED! Session not created ");
+            return resolve({ status: 401, data: { error: "Error sign in" } });
+        }
+
+        resolve({
+            status: 200,
+
+            data: {
+                accessToken: sessionItem.accessToken,
+                accessToken_exp: sessionItem.accessExpiresIn,
+                refreshToken: sessionItem.refreshToken,
+                refreshToken_exp: sessionItem.expiresIn,
+                login: findUserModel.login
+            }
+        });
     });
-
-    if (findUserModel === null) {
-      console.log("FIND FAILED! User not found ");
-      return resolve({ status: 403, data: { error: "User not found !!!" } });
-    }
-
-    const accessExpMinutes = 1;
-    const refreshExpMinutes = 10;
-
-    const sessionItem = {
-      userId: findUserModel.userId,
-
-      accessToken: generateToken(
-        { login: findUserModel.login },
-        process.env.ACCESS_TOKEN_SECRET,
-        accessExpMinutes
-      ),
-
-      refreshToken: generateToken(
-        { login: findUserModel.login },
-        process.env.REFRESH_TOKEN_SECRET,
-        refreshExpMinutes
-      ),
-
-      expiresIn: Math.floor(Date.now() / 1000) + 60 * refreshExpMinutes
-    };
-
-    const createdSession = await Sessions.create({
-      userId: sessionItem.userId,
-      refreshToken: sessionItem.refreshToken,
-      expiresIn: sessionItem.expiresIn
-    });
-
-    if (createdSession === undefined) {
-      console.log("CREATE SESSION FAILED! Session not created ");
-      return resolve({ status: 401, data: { error: "Error sign in" } });
-    }
-
-    resolve({
-      status: 200,
-      data: {
-        accessToken: sessionItem.accessToken,
-        refreshToken: sessionItem.refreshToken,
-        login: findUserModel.login
-      }
-    });
-  });
 };
 
 const updateToken = ({ refreshToken }) => {
-  return new Promise(async (resolve, reject) => {
-    if (!refreshToken)
-      resolve({ status: 401, data: { error: "Invalid token" } });
+    return new Promise(async (resolve, reject) => {
+        if (!refreshToken)
+            return resolve({ status: 401, data: { error: "Invalid token" } });
 
-    const sessionList = await Sessions.findAll({ where: { refreshToken } });
+        const session = await Sessions.findOne({ where: { refreshToken } });
 
-    if (!sessionList) console.log("Sessions not found ");
+        if (!session) console.log("Sessions not found ");
 
-    jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
-      if (err)
-        return resolve({ status: 401, data: { error: "Invalid token" } });
+        jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, async (err, user) => {
+            if (err)
+                return resolve({ status: 401, data: { error: "Invalid token" } });
 
-      resolve({ status: 200, data: {} });
+            const userModel = await Users.findOne({where: {userId: session.userId}});
+
+            if (!userModel) {
+                return resolve({ status: 403, data: { error: "User not found" } });
+            }
+
+            const accessToken = generateToken(
+                { login: userModel.login },
+                process.env.ACCESS_TOKEN_SECRET,
+                ACCESS_EXP_MINUTES,
+            );
+
+            const refreshToken = generateToken(
+                { login: userModel.login },
+                process.env.REFRESH_TOKEN_SECRET,
+                REFRESH_EXP_MINUTES,
+            );
+
+            const accessExpiresIn = Math.floor(Date.now() / 1000) + 60 * ACCESS_EXP_MINUTES;
+            const expiresIn = Math.floor(Date.now() / 1000) + 60 * REFRESH_EXP_MINUTES;
+
+            const updatedSession = await session.update({refreshToken, expiresIn});
+
+            if (!updatedSession) {
+                return resolve({ status: 401, data: {error: "Error authorization" }});
+            }
+
+            resolve({
+                status: 200,
+
+                data: {
+                    accessToken: accessToken,
+                    accessToken_exp: accessExpiresIn,
+                    refreshToken: refreshToken,
+                    refreshToken_exp: expiresIn,
+                }
+            });
+        });
     });
-  });
 };
 
 const findAll = () => {
@@ -147,7 +187,7 @@ const findAll = () => {
     // return resolve({ error: "Task not found" });
 
     // resolve(data);
-    resolve(data);
+    resolve({status: 200, data});
   });
 };
 
@@ -167,7 +207,7 @@ const findOne = idTask => {
 const createTask = task => {
   return new Promise(async (resolve, reject) => {
     const data = await Tasks.create(task);
-    resolve(data);
+    resolve({status: 200, data});
   });
 };
 

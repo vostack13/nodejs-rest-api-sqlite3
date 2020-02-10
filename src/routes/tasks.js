@@ -4,8 +4,8 @@ const AppDB = require("../models/db");
 const authenticateToken = require("../models/helpers/authenticateToken");
 
 router.get("/", authenticateToken, async (req, res) => {
-  const allTasks = await AppDB.findAll();
-  return res.send(allTasks);
+  const result = await AppDB.findAll();
+  return res.status(result.status).send(result.data);
 });
 
 module.exports = router;

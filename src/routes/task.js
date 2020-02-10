@@ -1,16 +1,18 @@
 const express = require("express");
 const router = express.Router();
 const AppDB = require("../models/db");
+const authenticateToken = require("../models/helpers/authenticateToken");
 
 router.get("/:id", async (req, res) => {
   const result = await AppDB.findOne(req.params.id);
   return res.send(result);
 });
 
-router.post("/", async (req, res) => {
+router.post("/", authenticateToken, async (req, res) => {
   await AppDB.createTask(req.body);
-  const allTasks = await AppDB.findAll();
-  return res.send(allTasks);
+  const result = await AppDB.findAll();
+
+  return res.status(result.status).send(result.data);
 });
 
 router.delete("/:id", async (req, res) => {

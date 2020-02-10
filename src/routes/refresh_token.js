@@ -3,9 +3,7 @@ const router = express.Router();
 const AppDB = require("../models/db");
 
 router.post("/", async (req, res) => {
-  const result = await AppDB.updateToken(req.body).catch(error => {
-    console.log("ERROR REFRESH:", error);
-  });
+  const result = await AppDB.updateToken(req.body);
 
   return res.status(result.status).send(result.data);
 });
