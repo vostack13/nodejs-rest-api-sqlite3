@@ -2,8 +2,8 @@ const generateToken = require("./helpers/generateToken");
 const Sequelize = require("sequelize");
 const jwt = require("jsonwebtoken");
 
-const ACCESS_EXP_MINUTES = 1;
-const REFRESH_EXP_MINUTES = 10;
+const ACCESS_EXP_MINUTES = 20;
+const REFRESH_EXP_MINUTES = 60 * 24 * 14;
 
 const sequelize = new Sequelize({
   dialect: "sqlite",
@@ -20,20 +20,26 @@ sequelize
   });
 
 const Tasks = sequelize.define("tasks", {
-  id: {
-    allowNull: false,
-    autoIncrement: true,
-    primaryKey: true,
-    type: Sequelize.DataTypes.INTEGER
-  },
-  title: {
-    type: Sequelize.STRING,
-    allowNull: false
-  },
-  description: {
-    type: Sequelize.STRING,
-    allowNull: false
-  }
+    id: {
+        allowNull: false,
+        autoIncrement: true,
+        primaryKey: true,
+        type: Sequelize.DataTypes.INTEGER
+    },
+
+    title: {
+        type: Sequelize.STRING,
+        allowNull: false
+    },
+
+    description: {
+        type: Sequelize.STRING,
+        allowNull: false
+    },
+    is_like: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false
+    }
 });
 
 const Users = sequelize.define("users", {
@@ -225,11 +231,31 @@ const removeTask = idTask => {
   });
 };
 
+const setIsLike = ({idTask, statusLike}) => {
+    return new Promise(async (resolve, reject) => {
+        const foundedModel = await Tasks.findOne({ where: { id: idTask } });
+
+        if (foundedModel === null) {
+            console.log("UPDATE LIKE FAILED! Task not found");
+            return resolve({status: 404, error: "Task not found" });
+        }
+
+        const updatedTask = await foundedModel.update({is_like: !foundedModel.is_like});
+
+        if (!updatedTask) {
+            return resolve({status: 500, error: "Error update like" });
+        }
+
+        return resolve({status: 200});
+    });
+};
+
 module.exports = {
-  signIn,
-  updateToken,
-  findAll,
-  findOne,
-  createTask,
-  removeTask
+    signIn,
+    updateToken,
+    findAll,
+    findOne,
+    createTask,
+    removeTask,
+    setIsLike,
 };
